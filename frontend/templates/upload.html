@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Submit a project — ProjectGuard{% endblock %}
+{% block content %}
+<h1 class="page-title">Submit a team's project</h1>
+<p class="page-lede">One submission per team, per subject. If a team already submitted for this subject, uploading again replaces it.</p>
+
+<form id="submit-form" class="panel" enctype="multipart/form-data">
+
+  <div class="field-row">
+    <div class="field">
+      <label for="section">Section</label>
+      <select id="section" name="section" required>
+        {% for s in sections %}<option value="{{ s }}">Section {{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="team_number">Team number</label>
+      <input type="number" id="team_number" name="team_number" min="1" max="16" required placeholder="e.g. 7">
+    </div>
+    <div class="field">
+      <label for="subject">Subject</label>
+      <select id="subject" name="subject" required>
+        {% for sub in subjects %}<option value="{{ sub }}">{{ sub }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field" style="grid-column: span 2;">
+      <label for="title">Project title <span class="muted">(optional)</span></label>
+      <input type="text" id="title" name="title" placeholder="e.g. Smart Traffic Density Monitor">
+    </div>
+    <div class="field">
+      <label for="members">Team members <span class="muted">(optional)</span></label>
+      <input type="text" id="members" name="members" placeholder="comma-separated names">
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="field">
+    <label for="abstract_file">Abstract file <span class="muted">(PDF, DOCX or TXT)</span></label>
+    <input type="file" id="abstract_file" name="abstract_file" accept=".pdf,.docx,.txt,.md">
+    <div class="hint">Text is extracted automatically. If extraction fails or you'd rather paste it, use the box below — it's used when no file is given, or when a file yields no text.</div>
+  </div>
+  <div class="field">
+    <label for="abstract_text">Abstract text <span class="muted">(fallback / optional if file given)</span></label>
+    <textarea id="abstract_text" name="abstract_text" placeholder="Paste the abstract here if you're not uploading a file..."></textarea>
+  </div>
+
+  <div class="field">
+    <label for="documentation_file">Documentation file <span class="muted">(PDF, DOCX or TXT)</span></label>
+    <input type="file" id="documentation_file" name="documentation_file" accept=".pdf,.docx,.txt,.md">
+  </div>
+
+  <hr class="divider">
+
+  <div class="field">
+    <label for="prototype_zip">Working prototype <span class="muted">(.zip of the code — stored for the professor to open)</span></label>
+    <input type="file" id="prototype_zip" name="prototype_zip" accept=".zip">
+  </div>
+  <div class="field">
+    <label for="prototype_description">What does the prototype do? <span class="muted">(required — this is what gets compared)</span></label>
+    <textarea id="prototype_description" name="prototype_description" required placeholder="A few sentences: the problem it solves, how it works, and the main tech/approach used. Duplicate-checking compares this description, not the raw code."></textarea>
+    <div class="hint">Source code isn't diffed directly — two teams can write completely different code for the same idea. This description is what gets embedded and compared for functional similarity.</div>
+  </div>
+
+  <button type="submit" id="submit-btn">Submit project</button>
+  <div id="status" style="display:none" class="status-msg"></div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById("submit-form");
+const statusEl = document.getElementById("status");
+const btn = document.getElementById("submit-btn");
+
+function showStatus(kind, html) {
+  statusEl.style.display = "block";
+  statusEl.className = "status-msg " + kind;
+  statusEl.innerHTML = html;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  btn.disabled = true;
+  btn.textContent = "Submitting…";
+  try {
+    const res = await fetch("/api/projects", { method: "POST", body: new FormData(form) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Submission failed");
+    showStatus("ok", `Saved <strong>${data.section}${data.team_number}</strong> — ${escapeHtml(data.subject)}. `
+      + `<a class="link" href="/projects/${data.id}">View submission</a> &middot; `
+      + `<a class="link" href="/dashboard">Go to duplicate review</a>`);
+    form.reset();
+  } catch (err) {
+    showStatus("err", escapeHtml(err.message));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Submit project";
+  }
+});
+</script>
+{% endblock %}

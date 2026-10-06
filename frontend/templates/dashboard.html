@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Duplicate review — ProjectGuard{% endblock %}
+{% block content %}
+<h1 class="page-title">Duplicate review</h1>
+<p class="page-lede">Every team is compared against every other team across all four sections, within the same subject. A high score means the ideas are conceptually close — it's a starting point for review, not a plagiarism verdict.</p>
+
+<div class="stat-strip" id="stat-strip">
+  <div class="stat"><div class="num">—</div><div class="label">Total submissions</div></div>
+  <div class="stat"><div class="num">—</div><div class="label">Pairs flagged</div></div>
+  <div class="stat"><div class="num">—</div><div class="label">Very high (≥80%)</div></div>
+  <div class="stat"><div class="num">—</div><div class="label">Sections covered</div></div>
+</div>
+
+<div class="filter-bar">
+  <div class="field">
+    <label for="f-subject">Subject</label>
+    <select id="f-subject">
+      <option value="">All subjects</option>
+      {% for sub in subjects %}<option value="{{ sub }}">{{ sub }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-section">Section involved</label>
+    <select id="f-section">
+      <option value="">Any section</option>
+      {% for s in sections %}<option value="{{ s }}">Section {{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field grow">
+    <label for="f-threshold">Minimum similarity — <span id="f-threshold-val">30</span>%</label>
+    <input type="range" id="f-threshold" min="10" max="95" value="30" style="width:100%">
+  </div>
+  <div class="field">
+    <label for="f-cross">&nbsp;</label>
+    <label style="font-size:13.5px; font-weight:400; color:var(--ink); display:flex; align-items:center; gap:6px;">
+      <input type="checkbox" id="f-cross" style="width:auto"> Compare across subjects too
+    </label>
+  </div>
+</div>
+
+<div id="results"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const els = {
+  subject: document.getElementById("f-subject"),
+  section: document.getElementById("f-section"),
+  threshold: document.getElementById("f-threshold"),
+  thresholdVal: document.getElementById("f-threshold-val"),
+  cross: document.getElementById("f-cross"),
+  results: document.getElementById("results"),
+  statStrip: document.getElementById("stat-strip"),
+};
+
+async function loadStats() {
+  const res = await fetch("/api/stats");
+  const s = await res.json();
+  const nums = els.statStrip.querySelectorAll(".num");
+  nums[0].textContent = s.total_projects;
+  return s;
+}
+
+function renderChips(parts) {
+  const labels = { abstract: "Abstract", documentation: "Documentation", prototype: "Prototype" };
+  if (!parts.length) return '<span class="muted">—</span>';
+  return parts.map(p => `<span class="chip">${labels[p] || p}</span>`).join("");
+}
+
+function renderRow(m) {
+  const a = m.project_a, b = m.project_b;
+  return `<tr>
+    <td>
+      <span class="team-tag">${teamTag(a)}</span> vs <span class="team-tag">${teamTag(b)}</span><br>
+      <span class="muted" style="font-size:12.5px">${escapeHtml(a.subject)}</span>
+    </td>
+    <td>
+      <a class="link" href="/projects/${a.id}">${escapeHtml(a.title || "Untitled")}</a><br>
+      <a class="link" href="/projects/${b.id}">${escapeHtml(b.title || "Untitled")}</a>
+    </td>
+    <td><span class="pct">${m.overall_similarity_pct}%</span></td>
+    <td><span class="badge ${badgeClass(m.category)}">${m.category}</span></td>
+    <td>${renderChips(m.matched_parts)}</td>
+  </tr>`;
+}
+
+async function loadResults() {
+  els.results.innerHTML = '<div class="empty-state">Comparing submissions…</div>';
+  const params = new URLSearchParams({
+    threshold: els.threshold.value,
+    cross_subject: els.cross.checked,
+  });
+  if (els.subject.value) params.set("subject", els.subject.value);
+  if (els.section.value) params.set("section", els.section.value);
+
+  const res = await fetch("/api/duplicates?" + params.toString());
+  const matches = await res.json();
+
+  const stats = els.statStrip.querySelectorAll(".num");
+  stats[1].textContent = matches.length;
+  stats[2].textContent = matches.filter(m => m.category === "Very High").length;
+  const sectionsInvolved = new Set();
+  matches.forEach(m => { sectionsInvolved.add(m.project_a.section); sectionsInvolved.add(m.project_b.section); });
+  stats[3].textContent = sectionsInvolved.size;
+
+  if (!matches.length) {
+    els.results.innerHTML = '<div class="empty-state">No pairs at or above this similarity threshold yet.<br>Lower the threshold, or submit more projects to compare.</div>';
+    return;
+  }
+
+  els.results.innerHTML = `<table class="ledger">
+    <thead><tr>
+      <th>Teams</th><th>Titles</th><th>Similarity</th><th>Category</th><th>Duplicated parts</th>
+    </tr></thead>
+    <tbody>${matches.map(renderRow).join("")}</tbody>
+  </table>`;
+}
+
+els.threshold.addEventListener("input", () => { els.thresholdVal.textContent = els.threshold.value; });
+[els.subject, els.section, els.cross].forEach(el => el.addEventListener("change", loadResults));
+els.threshold.addEventListener("change", loadResults);
+
+loadStats();
+loadResults();
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}ProjectGuard{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="wordmark" href="/">ProjectGuard<span class="wordmark-dot">.</span></a>
+    <nav class="site-nav">
+      <a href="/" class="{{ 'active' if active == 'submit' else '' }}">Submit a project</a>
+      <a href="/dashboard" class="{{ 'active' if active == 'dashboard' else '' }}">Duplicate review</a>
+      <a href="/projects" class="{{ 'active' if active == 'projects' else '' }}">All submissions</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap page">
+{% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <div class="wrap">AIML Dept &middot; Sections A&ndash;D &middot; semantic similarity via sentence embeddings, not keyword matching</div>
+</footer>
+<script src="/static/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

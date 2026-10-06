@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Project — ProjectGuard{% endblock %}
+{% block content %}
+<div id="content"><div class="empty-state">Loading…</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const projectId = {{ project_id }};
+
+function labelFor(component) {
+  return { abstract: "Abstract", documentation: "Documentation", prototype: "Prototype" }[component] || component;
+}
+
+function renderMatchRow(m, selfId) {
+  const other = m.project_a.id === selfId ? m.project_b : m.project_a;
+  const bars = m.components.map(c => `
+    <div style="margin-bottom:6px;">
+      <span class="muted" style="font-size:12px;">${labelFor(c.component)}</span>
+      <span class="pct" style="font-size:13px; float:right;">${c.similarity_pct}%</span>
+    </div>`).join("");
+  return `<tr>
+    <td><span class="team-tag">${teamTag(other)}</span><br><span class="muted" style="font-size:12.5px">${escapeHtml(other.subject)}</span></td>
+    <td><a class="link" href="/projects/${other.id}">${escapeHtml(other.title || "Untitled")}</a></td>
+    <td><span class="pct">${m.overall_similarity_pct}%</span> <span class="badge ${badgeClass(m.category)}">${m.category}</span></td>
+    <td style="min-width:160px">${bars}</td>
+  </tr>`;
+}
+
+async function load() {
+  const [projectRes, similarRes] = await Promise.all([
+    fetch(`/api/projects/${projectId}`),
+    fetch(`/api/projects/${projectId}/similar?threshold=10`),
+  ]);
+  if (!projectRes.ok) {
+    document.getElementById("content").innerHTML = '<div class="empty-state">Project not found.</div>';
+    return;
+  }
+  const p = await projectRes.json();
+  const matches = await similarRes.json();
+
+  document.title = `${teamTag(p)} — ${p.title || "Untitled"} — ProjectGuard`;
+
+  const zipList = p.prototype_zip_contents.length
+    ? `<div class="text-block" style="max-height:140px">${p.prototype_zip_contents.map(escapeHtml).join("<br>")}</div>`
+    : '<p class="muted">No prototype zip uploaded.</p>';
+
+  document.getElementById("content").innerHTML = `
+    <p class="muted" style="margin-bottom:4px;"><span class="team-tag">${teamTag(p)}</span> &middot; ${escapeHtml(p.subject)} &middot; submitted ${fmtDate(p.created_at)}</p>
+    <h1 class="page-title">${escapeHtml(p.title || "Untitled project")}</h1>
+    <p class="page-lede">${escapeHtml(p.members || "No members listed")}</p>
+
+    <div class="panel">
+      <h2 class="section-title">Abstract</h2>
+      <p class="muted" style="font-size:12.5px; margin-top:0;">${p.abstract_filename ? "From file: " + escapeHtml(p.abstract_filename) : "Entered as text"}</p>
+      <div class="text-block">${escapeHtml(p.abstract_text) || '<span class="muted">No abstract text.</span>'}</div>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Documentation</h2>
+      <p class="muted" style="font-size:12.5px; margin-top:0;">${p.documentation_filename ? "From file: " + escapeHtml(p.documentation_filename) : ""}</p>
+      <div class="text-block">${escapeHtml(p.documentation_text) || '<span class="muted">No documentation text.</span>'}</div>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Prototype</h2>
+      <p class="muted" style="font-size:12.5px; margin-top:0;">${p.prototype_zip_filename ? "Uploaded: " + escapeHtml(p.prototype_zip_filename) : "No zip uploaded"}</p>
+      <div class="text-block" style="margin-bottom:14px;">${escapeHtml(p.prototype_description)}</div>
+      ${zipList}
+    </div>
+
+    <h2 class="section-title">Similar projects</h2>
+    <p class="muted" style="margin-top:0 0 16px;">Compared against other ${escapeHtml(p.subject)} submissions.</p>
+    ${matches.length ? `<table class="ledger">
+      <thead><tr><th>Team</th><th>Title</th><th>Overall</th><th>Breakdown</th></tr></thead>
+      <tbody>${matches.map(m => renderMatchRow(m, p.id)).join("")}</tbody>
+    </table>` : '<div class="empty-state">No comparable submissions yet.</div>'}
+  `;
+}
+
+load();
+</script>
+{% endblock %}

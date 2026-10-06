@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}All submissions — ProjectGuard{% endblock %}
+{% block content %}
+<h1 class="page-title">All submissions</h1>
+<p class="page-lede">Every project submitted so far, across all sections and subjects.</p>
+
+<div class="filter-bar">
+  <div class="field">
+    <label for="f-subject">Subject</label>
+    <select id="f-subject">
+      <option value="">All subjects</option>
+      {% for sub in subjects %}<option value="{{ sub }}">{{ sub }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-section">Section</label>
+    <select id="f-section">
+      <option value="">All sections</option>
+      {% for s in sections %}<option value="{{ s }}">Section {{ s }}</option>{% endfor %}
+    </select>
+  </div>
+</div>
+
+<div id="results"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const els = {
+  subject: document.getElementById("f-subject"),
+  section: document.getElementById("f-section"),
+  results: document.getElementById("results"),
+};
+
+function renderRow(p) {
+  return `<tr>
+    <td><span class="team-tag">${teamTag(p)}</span></td>
+    <td>${escapeHtml(p.subject)}</td>
+    <td><a class="link" href="/projects/${p.id}">${escapeHtml(p.title || "Untitled")}</a></td>
+    <td class="muted">${escapeHtml(p.members || "—")}</td>
+    <td class="muted">${fmtDate(p.created_at)}</td>
+  </tr>`;
+}
+
+async function load() {
+  els.results.innerHTML = '<div class="empty-state">Loading…</div>';
+  const params = new URLSearchParams();
+  if (els.subject.value) params.set("subject", els.subject.value);
+  if (els.section.value) params.set("section", els.section.value);
+  const res = await fetch("/api/projects?" + params.toString());
+  const projects = await res.json();
+
+  if (!projects.length) {
+    els.results.innerHTML = '<div class="empty-state">No submissions yet.<br><a class="link" href="/">Submit the first project</a></div>';
+    return;
+  }
+
+  els.results.innerHTML = `<table class="ledger">
+    <thead><tr><th>Team</th><th>Subject</th><th>Title</th><th>Members</th><th>Submitted</th></tr></thead>
+    <tbody>${projects.map(renderRow).join("")}</tbody>
+  </table>`;
+}
+
+[els.subject, els.section].forEach(el => el.addEventListener("change", load));
+load();
+</script>
+{% endblock %}
